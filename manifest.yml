@@ -7,9 +7,9 @@ applications:
   env:
     GOPACKAGENAME: github.com/RaduBerinde/pcf-crdb-service-broker
     GOVERSION: go1.8
-    CRDB_HOST: 1.2.3.4
-    CRDB_PORT: 5432
+    CRDB_HOST: 40.71.190.228
+    CRDB_PORT: 26257
     CRDB_USER: tbd
     CRDB_PASSWORD: tbd
-    SECURITY_USER_NAME: pgUser
-    SECURITY_USER_PASSWORD: pgPass
+    SECURITY_USER_NAME: user
+    SECURITY_USER_PASSWORD: pass

@@ -8,6 +8,12 @@
   revision = "dfcbcba2dd4a5228c43b0292d219d5c010daed3a"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/dchest/uniuri"
+  packages = ["."]
+  revision = "8902c56451e9b58ff940bbe5fec35d5f9c04584a"
+
+[[projects]]
   name = "github.com/gorilla/context"
   packages = ["."]
   revision = "215affda49addc4c8ef7e2534915df2c8c35c6cd"
@@ -20,6 +26,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/lib/pq"
+  packages = [".","oid"]
+  revision = "8837942c3e09574accbc5f150e2c5e057189cace"
+
+[[projects]]
+  branch = "master"
   name = "github.com/pivotal-cf/brokerapi"
   packages = [".","auth"]
   revision = "6d25b9398d9f05880ca8f480134a88c8d2df69bc"
@@ -27,6 +39,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "790a3aa1847dee13c9f3ca4bf0fe64aa45eebb2fd691159882eaf192c1ccb5bf"
+  inputs-digest = "2830c005690eba26d16b0de26774a9ad7f31b1121ba4078ad8f1fe7838c85dc7"
   solver-name = "gps-cdcl"
   solver-version = 1
