@@ -1,15 +1,15 @@
 ---
 applications:
 - name: crdb-broker
-  memory: 512M
+  memory: 128M
   instances: 1
   buildpack: go_buildpack
   env:
     GOPACKAGENAME: github.com/RaduBerinde/pcf-crdb-service-broker
     GOVERSION: go1.8
-    CRDB_HOST: 40.71.190.228
+    CRDB_HOST: 13.82.91.246
     CRDB_PORT: 26257
-    CRDB_USER: tbd
-    CRDB_PASSWORD: tbd
+    CRDB_USER: root
+    #CRDB_PASSWORD: 
     SECURITY_USER_NAME: user
     SECURITY_USER_PASSWORD: pass

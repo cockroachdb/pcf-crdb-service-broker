@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	_ "github.com/lib/pq" // initialize the postgres sql driver
@@ -21,20 +22,64 @@ const (
 	planName    = "default"
 )
 
-type CRDBServiceInstance struct {
-	dbName string
+type crdbBinding struct {
+	user string
 }
 
-type CRDBServiceBroker struct {
+type crdbServiceInstance struct {
+	host   string
+	port   string
+	dbName string
+
+	mu struct {
+		sync.Mutex
+		bindings map[string]*crdbBinding
+	}
+}
+
+func newCRDBServiceInstance(host, port, dbName string) *crdbServiceInstance {
+	si := &crdbServiceInstance{
+		host:   host,
+		port:   port,
+		dbName: dbName,
+	}
+	si.mu.bindings = make(map[string]*crdbBinding)
+	return si
+}
+
+func (si *crdbServiceInstance) getBinding(bindingID string) *crdbBinding {
+	si.mu.Lock()
+	defer si.mu.Unlock()
+	return si.mu.bindings[bindingID]
+}
+
+type crdbServiceBroker struct {
+	host string
+	port string
 	crdb *sql.DB
 
 	mu struct {
 		sync.Mutex
-		instances map[string]CRDBServiceInstance
+		instances map[string]*crdbServiceInstance
 	}
 }
 
-func newCRDBServiceBroker(host, port, user, pass string) (*CRDBServiceBroker, error) {
+// dbURI creates a URI that can be used to connect to CockroachDB;
+// user, pass, and db are optional.
+func dbURI(host, port, user, pass, db string) string {
+	if host == "" || port == "" {
+		panic("host/port not passed")
+	}
+	if user == "" {
+		return fmt.Sprintf("postgres://%s:%s/%s?sslmode=disable", host, port, db)
+	}
+	if pass == "" {
+		return fmt.Sprintf("postgres://%s@%s:%s/%s?sslmode=disable", user, host, port, db)
+	}
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, pass, host, port, db)
+}
+
+func newCRDBServiceBroker(host, port, user, pass string) (*crdbServiceBroker, error) {
 	if host == "" {
 		return nil, errors.New("CockroachDB host not specified")
 	}
@@ -42,30 +87,28 @@ func newCRDBServiceBroker(host, port, user, pass string) (*CRDBServiceBroker, er
 		return nil, errors.New("CockroachDB port not specified")
 	}
 
-	var dbUrl string
-	if user == "" {
-		dbUrl = fmt.Sprintf("postgres://%s:%s/?sslmode=disable", host, port)
-	} else if pass == "" {
-		dbUrl = fmt.Sprintf("postgres://%s@%s:%s/?sslmode=disable", user, host, port)
-	} else {
-		dbUrl = fmt.Sprintf("postgres://%s:%s@%s:%s/?sslmode=disable", user, pass, host, port)
-	}
-	crdb, err := sql.Open("postgres", dbUrl)
+	crdb, err := sql.Open("postgres", dbURI(host, port, user, pass, "" /* no database */))
 	if err != nil {
 		return nil, err
 	}
-	return &CRDBServiceBroker{crdb: crdb}, nil
+	sb := &crdbServiceBroker{
+		host: host,
+		port: port,
+		crdb: crdb,
+	}
+	sb.mu.instances = make(map[string]*crdbServiceInstance)
+	return sb, nil
 }
 
-func (sb *CRDBServiceBroker) getInstance(instanceID string) (CRDBServiceInstance, bool) {
+// getInstance retrieves a service instance; returns nil if it doesn't exist.
+func (sb *crdbServiceBroker) getInstance(instanceID string) *crdbServiceInstance {
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
-	info, ok := sb.mu.instances[instanceID]
-	return info, ok
+	return sb.mu.instances[instanceID]
 }
 
 // Services is part of the brokerapi.ServiceBroker interface.
-func (sb *CRDBServiceBroker) Services(context context.Context) []brokerapi.Service {
+func (sb *crdbServiceBroker) Services(context context.Context) []brokerapi.Service {
 	plans := []brokerapi.ServicePlan{
 		{
 			ID:          planID,
@@ -103,51 +146,70 @@ func (sb *CRDBServiceBroker) Services(context context.Context) []brokerapi.Servi
 	}
 }
 
+// getDBName creates a database name that is associated with an instance.
+// Example:
+//   getDBName("c5c7fcbd-618a-4de0-953a-d4e357acc22a")
+// returns
+//   "cf_c5c7fcbd_618a_4de0_953a_d4e357acc22a"
+
+func getDBName(instanceID string) string {
+	// instanceID should be a GUID; verify that it has no special characters just
+	// in case.
+	for _, s := range instanceID {
+		if !(s == '-' || (s >= 'a' && s <= 'z') || (s >= 'A' && s <= 'Z') || (s >= '0' && s <= '9')) {
+			return uniuri.New()
+		}
+	}
+	return "cf_" + strings.Replace(instanceID, "-", "_", -1)
+}
+
 // Provision is part of the brokerapi.ServiceBroker interface.
-func (sb *CRDBServiceBroker) Provision(
+func (sb *crdbServiceBroker) Provision(
 	context context.Context, instanceID string, details brokerapi.ProvisionDetails, asyncAllowed bool,
 ) (brokerapi.ProvisionedServiceSpec, error) {
 	if details.PlanID != planID {
 		return brokerapi.ProvisionedServiceSpec{}, fmt.Errorf("unknown plan ID '%s'", details.PlanID)
 	}
-	if _, exists := sb.getInstance(instanceID); exists {
+	if sb.getInstance(instanceID) != nil {
 		return brokerapi.ProvisionedServiceSpec{}, brokerapi.ErrInstanceAlreadyExists
 	}
-	dbName := uniuri.New()
+	// Generate a random string for the database name.
+	// TODO(radu): allow the user to pass the name in the details.
+	dbName := getDBName(instanceID)
 
 	// Create database.
-	if _, err := sb.crdb.Exec("CREATE DATABASE $1", dbName); err != nil {
+	if _, err := sb.crdb.Exec("CREATE DATABASE " + dbName); err != nil {
 		log.Error("create-database", err)
-		return brokerapi.ProvisionedServiceSpec{}, err
+		return brokerapi.ProvisionedServiceSpec{}, fmt.Errorf("creating database: %s", err)
 	}
 	sb.mu.Lock()
-	// We could have a parallel call with the same instanceID, but if that happens
-	// one of them will fail to create the database.
-	sb.mu.instances[instanceID] = CRDBServiceInstance{dbName: dbName}
+	// TODO(radu) We could have a parallel call with the same instanceID;
+	// delete the database in this case.
+	sb.mu.instances[instanceID] = newCRDBServiceInstance(sb.host, sb.port, dbName)
 	sb.mu.Unlock()
 	return brokerapi.ProvisionedServiceSpec{}, nil
 }
 
 // Deprovision is part of the brokerapi.ServiceBroker interface.
-func (sb *CRDBServiceBroker) Deprovision(
+func (sb *crdbServiceBroker) Deprovision(
 	context context.Context,
 	instanceID string,
 	details brokerapi.DeprovisionDetails,
 	asyncAllowed bool,
 ) (brokerapi.DeprovisionServiceSpec, error) {
-	instance, exists := sb.getInstance(instanceID)
-	if !exists {
-		return brokerapi.DeprovisionServiceSpec{}, brokerapi.ErrInstanceDoesNotExist
+	instance := sb.getInstance(instanceID)
+	if instance == nil {
+		// Nothing to do.
+		return brokerapi.DeprovisionServiceSpec{}, nil
 	}
 
 	// Delete database.
-	if _, err := sb.crdb.Exec("DROP DATABASE $1", instance.dbName); err != nil {
+	if _, err := sb.crdb.Exec("DROP DATABASE IF EXISTS " + instance.dbName); err != nil {
 		log.Error("drop-database", err)
-		return brokerapi.DeprovisionServiceSpec{}, err
+		return brokerapi.DeprovisionServiceSpec{}, fmt.Errorf("dropping database: %s", err)
 	}
 	sb.mu.Lock()
-	// We could have a parallel call with the same instanceID, but if that happens
-	// one of them will fail to delete the database.
+	// We could have a parallel call with the same instanceID, but that's ok.
 	delete(sb.mu.instances, instanceID)
 	sb.mu.Unlock()
 
@@ -155,28 +217,84 @@ func (sb *CRDBServiceBroker) Deprovision(
 }
 
 // Bind is part of the brokerapi.ServiceBroker interface.
-func (sb *CRDBServiceBroker) Bind(
+func (sb *crdbServiceBroker) Bind(
 	context context.Context, instanceID, bindingID string, details brokerapi.BindDetails,
 ) (brokerapi.Binding, error) {
-	return brokerapi.Binding{}, errors.New("not implemented")
+	instance := sb.getInstance(instanceID)
+	if instance == nil {
+		return brokerapi.Binding{}, brokerapi.ErrInstanceDoesNotExist
+	}
+	if instance.getBinding(bindingID) != nil {
+		return brokerapi.Binding{}, brokerapi.ErrBindingAlreadyExists
+	}
+	// TODO(radu): allow user/pass to be passed through BindDetails.RawParameters
+	user := uniuri.New()
+	pass := uniuri.New()
+
+	if _, err := sb.crdb.Exec(
+		fmt.Sprintf("CREATE USER %s WITH PASSWORD '%s'", user, pass),
+	); err != nil {
+		log.Error("create-user", err)
+		return brokerapi.Binding{}, fmt.Errorf("creating user: %s", err)
+	}
+
+	if _, err := sb.crdb.Exec(
+		fmt.Sprintf("GRANT ALL ON DATABASE %s TO %s", instance.dbName, user),
+	); err != nil {
+		log.Error("grant-privileges", err)
+		// TODO(radu): delete the user
+		return brokerapi.Binding{}, fmt.Errorf("granting privileges: %s", err)
+	}
+
+	credMap := map[string]interface{}{
+		"host":     instance.host,
+		"port":     instance.port,
+		"database": instance.dbName,
+		"username": user,
+		"password": pass,
+		"uri":      dbURI(instance.host, instance.port, user, pass, instance.dbName),
+	}
+
+	instance.mu.Lock()
+	instance.mu.bindings[bindingID] = &crdbBinding{user: user}
+	instance.mu.Unlock()
+
+	return brokerapi.Binding{Credentials: credMap}, nil
 }
 
 // Unbind is part of the brokerapi.ServiceBroker interface.
-func (sb *CRDBServiceBroker) Unbind(
+func (sb *crdbServiceBroker) Unbind(
 	context context.Context, instanceID, bindingID string, details brokerapi.UnbindDetails,
 ) error {
-	return errors.New("not implemented")
+	instance := sb.getInstance(instanceID)
+	if instance == nil {
+		return brokerapi.ErrInstanceDoesNotExist
+	}
+	binding := instance.getBinding(bindingID)
+	if binding == nil {
+		return brokerapi.ErrBindingDoesNotExist
+	}
+
+	if _, err := sb.crdb.Exec(fmt.Sprintf("DROP USER IF EXISTS %s", binding.user)); err != nil {
+		log.Error("drop-user", err)
+		return fmt.Errorf("deleting user: %s", err)
+	}
+
+	instance.mu.Lock()
+	delete(instance.mu.bindings, bindingID)
+	instance.mu.Unlock()
+	return nil
 }
 
 // Update is part of the brokerapi.ServiceBroker interface.
-func (sb *CRDBServiceBroker) Update(
+func (sb *crdbServiceBroker) Update(
 	context context.Context, instanceID string, details brokerapi.UpdateDetails, asyncAllowed bool,
 ) (brokerapi.UpdateServiceSpec, error) {
 	return brokerapi.UpdateServiceSpec{}, nil
 }
 
 // LastOperation is part of the brokerapi.ServiceBroker interface.
-func (sb *CRDBServiceBroker) LastOperation(
+func (sb *crdbServiceBroker) LastOperation(
 	context context.Context, instanceID, operationData string,
 ) (brokerapi.LastOperation, error) {
 	return brokerapi.LastOperation{}, nil
