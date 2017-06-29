@@ -1,15 +1,43 @@
 ---
 applications:
-- name: crdb-broker
-  memory: 128M
-  instances: 1
-  buildpack: go_buildpack
-  env:
-    GOPACKAGENAME: github.com/RaduBerinde/pcf-crdb-service-broker
-    GOVERSION: go1.8
-    CRDB_HOST: 13.82.91.246
-    CRDB_PORT: 26257
-    CRDB_USER: root
-    #CRDB_PASSWORD: 
-    SECURITY_USER_NAME: user
-    SECURITY_USER_PASSWORD: pass
+  - name: crdb-broker
+    product_version: 1.0
+    metadata_version: 1.0
+    memory: 256M
+    instances: 1
+    buildpack: go_buildpack
+    env:
+      SERVICES: '[
+        {
+          "id": "e2e250b5-73f8-45fd-9a7f-93c8dddc5f00",
+          "name": "cockroachdb",
+          "description": "A cloud-native SQL database for building global, scalable cloud services that survive disasters.",
+          "bindable": true,
+          "plan_updateable": false,
+          "metadata": {
+            "displayName": "CockroachDB",
+            "longDescription": "A cloud-native SQL database for building global, scalable cloud services that survive disasters.",
+            "documentationUrl": "https://www.cockroachlabs.com/docs/",
+            "supportUrl": "https://www.cockroachlabs.com/community/",
+            "imageUrl": "https://www.cockroachlabs.com/images/CockroachLabs_Logo_Mark-lightbackground.svg"
+          },
+          "tags": ["cockroachdb", "relational"]
+        }
+      ]'
+      PRECONFIGURED_PLANS: '[
+        {
+          "name": "default",
+          "description": "Default",
+          "metadata": {
+            "displayName": "Default"
+          },
+          "serviceID": "e2e250b5-73f8-45fd-9a7f-93c8dddc5f00",
+          "crdbHost": "13.82.91.246",
+          "crdbPort": "26257",
+          "crdbAdminUser": "root"
+        }
+      ]'
+      GOPACKAGENAME: github.com/RaduBerinde/pcf-crdb-service-broker
+      GOVERSION: go1.8
+      SECURITY_USER_NAME: user
+      SECURITY_USER_PASSWORD: pass

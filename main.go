@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 
 	"github.com/pivotal-cf/brokerapi"
 
@@ -23,18 +22,7 @@ func main() {
 
 	log.Info("Starting CF CockroachDB broker")
 
-	crHost := os.Getenv("CRDB_HOST")
-	crPort := os.Getenv("CRDB_PORT")
-	if crPort == "" {
-		crPort = strconv.Itoa(defaultCockroachPort)
-	}
-	crUser := os.Getenv("CRDB_USER")
-	crPass := os.Getenv("CRDN_PASS")
-
-	serviceBroker, err := newCRDBServiceBroker(crHost, crPort, crUser, crPass)
-	if err != nil {
-		log.Fatal("initialize broker", err)
-	}
+	serviceBroker := newCRDBServiceBroker()
 
 	brokerCredentials := brokerapi.BrokerCredentials{
 		Username: os.Getenv("SECURITY_USER_NAME"),
