@@ -109,11 +109,11 @@ func addPlan(p Plan) {
 func init() {
 	// Init services.
 	var services []Service
-	servicesStr := os.Getenv("SERVICES")
-	if servicesStr == "" {
+	servicesJSON := os.Getenv("SERVICES")
+	if servicesJSON == "" {
 		log.Fatal("init", errors.New("SERVICES not specified"))
 	}
-	if err := json.Unmarshal([]byte(servicesStr), &services); err != nil {
+	if err := json.Unmarshal([]byte(servicesJSON), &services); err != nil {
 		log.Fatal("init-unmarshal-services", err)
 	}
 	if len(services) == 0 {
@@ -125,9 +125,9 @@ func init() {
 
 	// Init static plans.
 	var plans []Plan
-	planStr := os.Getenv("PRECONFIGURED_PLANS")
-	if planStr != "" {
-		if err := json.Unmarshal([]byte(planStr), &plans); err != nil {
+	planJSON := os.Getenv("PRECONFIGURED_PLANS")
+	if planJSON != "" {
+		if err := json.Unmarshal([]byte(planJSON), &plans); err != nil {
 			log.Fatal("init-unmarshal-preconfigured-plans", err)
 		}
 	}
