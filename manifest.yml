@@ -1,12 +1,14 @@
 ---
 applications:
-  - name: crdb-broker
+  - name: crdb-service-broker
     product_version: 1.0
     metadata_version: 1.0
     memory: 256M
     instances: 1
     buildpack: go_buildpack
     env:
+      GOPACKAGENAME: github.com/RaduBerinde/pcf-crdb-service-broker
+      GOVERSION: go1.8
       SERVICES: '[
         {
           "id": "e2e250b5-73f8-45fd-9a7f-93c8dddc5f00",
@@ -37,7 +39,5 @@ applications:
           "crdbAdminUser": "root"
         }
       ]'
-      GOPACKAGENAME: github.com/RaduBerinde/pcf-crdb-service-broker
-      GOVERSION: go1.8
       SECURITY_USER_NAME: user
       SECURITY_USER_PASSWORD: pass

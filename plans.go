@@ -1,3 +1,17 @@
+// Copyright 2017 The Cockroach Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package main
 
 import (
@@ -6,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
+	"strconv"
 
 	"github.com/pivotal-cf/brokerapi"
 )
@@ -14,20 +30,20 @@ import (
 type Plan struct {
 	brokerapi.ServicePlan
 
-	ServiceID string `json: serviceID`
+	ServiceID string `json:"serviceID"`
 
-	CRDBHost      string `json: crdbHost`
-	CRDBPort      string `json: crdbPort`
-	CRDBAdminUser string `json: crdbAdminUser`
-	CRDBPassword  string `json: crdbPassword`
+	CRDBHost      string `json:"crdbHost"`
+	CRDBPort      string `json:"crdbPort"`
+	CRDBAdminUser string `json:"crdbAdminUser"`
+	CRDBPassword  string `json:"crdbPassword"`
 
-	crdb *sql.DB `json: -`
+	crdb *sql.DB
 }
 
 type Service struct {
 	// Note that the Plans field is not populated in this structure.
 	brokerapi.Service
-	Plans []Plan `json: -`
+	Plans []Plan `json:"-"`
 }
 
 var Services []Service
@@ -95,6 +111,9 @@ func addPlan(p Plan) {
 	if p.CRDBHost == "" || p.CRDBPort == "" {
 		log.Fatal("init", fmt.Errorf("plan '%s' does not specify a CockroachDB host/port", p.Name))
 	}
+	if p.CRDBAdminUser == "" {
+		p.CRDBAdminUser = "root"
+	}
 	p.crdb, err = sql.Open(
 		"postgres",
 		dbURI(p.CRDBHost, p.CRDBPort, p.CRDBAdminUser, p.CRDBPassword, "" /* no database */),
@@ -106,7 +125,52 @@ func addPlan(p Plan) {
 	s.Plans = append(s.Plans, p)
 }
 
-func init() {
+type customPlanSpec struct {
+	ID          string `json:"guid"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Description string `json:"description"`
+	ServiceID   string `json:"service"`
+	DBHost      string `json:"host"`
+	DBPort      int    `json:"port"`
+}
+
+func createCustomPlans(customPlansJSON string) ([]Plan, error) {
+	if customPlansJSON == "" {
+		return nil, nil
+	}
+	var cp map[string]customPlanSpec
+	if err := json.Unmarshal([]byte(customPlansJSON), &cp); err != nil {
+		return nil, err
+	}
+	// Sort the keys so we always expose the plans in the same order.
+	var keys []string
+	for k := range cp {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var plans []Plan
+	for _, k := range keys {
+		p := cp[k]
+		plans = append(plans, Plan{
+			ServicePlan: brokerapi.ServicePlan{
+				ID:          p.ID,
+				Name:        p.Name,
+				Description: p.Description,
+				Metadata: &brokerapi.ServicePlanMetadata{
+					DisplayName: p.DisplayName,
+				},
+			},
+			ServiceID: p.ServiceID,
+			CRDBHost:  p.DBHost,
+			CRDBPort:  strconv.Itoa(p.DBPort),
+		})
+	}
+	return plans, nil
+}
+
+func InitServicesAndPlans() {
 	// Init services.
 	var services []Service
 	servicesJSON := os.Getenv("SERVICES")
@@ -132,7 +196,11 @@ func init() {
 		}
 	}
 
-	// TODO(radu): add dynamic plans.
+	customPlans, err := createCustomPlans(os.Getenv("CUSTOM_PLANS"))
+	if err != nil {
+		log.Fatal("init-custom-plans", err)
+	}
+	plans = append(plans, customPlans...)
 
 	if len(plans) == 0 {
 		log.Fatal("init", errors.New("no plans"))

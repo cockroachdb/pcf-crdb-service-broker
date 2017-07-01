@@ -1,5 +1,5 @@
 ---
-name: crdb-broker
+name: crdb-service-broker
 icon_file: resources/CockroachLabs_Logo_Mark-lightbackground.png
 label: CockroachDB Service Broker
 description: A service broker for CockroachDB
@@ -11,7 +11,7 @@ migration: |
   properties['properties']['.properties.org']['value'] = 'system';
 
 packages:
-  - name: crdb-broker
+  - name: crdb-service-broker
     type: app-broker
     manifest:
       buildpack: go_buildpack
@@ -19,6 +19,8 @@ packages:
       memory: 256M
       instances: 1
       env:
+        GOPACKAGENAME: github.com/RaduBerinde/pcf-crdb-service-broker
+        GOVERSION: go1.8
         SERVICES: '[
           {
             "id": "e2e250b5-73f8-45fd-9a7f-93c8dddc5f00",
@@ -36,7 +38,20 @@ packages:
             "tags": ["cockroachdb", "relational"]
           }
         ]'
-        PRECONFIGURED_PLANS: '[]'
+        #        PRECONFIGURED_PLANS: '[]'
+        PRECONFIGURED_PLANS: '[
+          {
+            "name": "default",
+            "description": "Default",
+            "metadata": {
+              "displayName": "Default"
+            },
+            "serviceID": "e2e250b5-73f8-45fd-9a7f-93c8dddc5f00",
+            "crdbHost": "13.82.91.246",
+            "crdbPort": "26257",
+            "crdbAdminUser": "root"
+          }
+        ]'
     needs_cf_credentials: false
     enable_global_access_to_plans: true
 
@@ -51,7 +66,7 @@ service_plan_forms:
 - name: custom_plans
   description: 'Generate plans for CockroachDB. Each plan can be used to connect to a given CockroachDB cluster.'
   label: 'Plans'
-  optional: true
+  optional: false
   properties:
     - name: display_name
       label: 'Display Name'
@@ -75,10 +90,9 @@ service_plan_forms:
       type: string
       description: 'Address to the CockroachDB cluster. This is ideally a load balancer in front of the cluster, but can also be a specific CockroachDB instance. Currently, this must be an --insecure deployment'
       configurable: true
-    - port: port
-      label: 'Database port'
+    - name: port
+      label: 'Database port (defaults to 26257)'
       type: integer
-      description: 'Port to conect to.'
       default: 26257
       configurable: true
       constraints:
