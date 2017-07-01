@@ -19,7 +19,7 @@ packages:
       memory: 256M
       instances: 1
       env:
-        GOPACKAGENAME: github.com/RaduBerinde/pcf-crdb-service-broker
+        GOPACKAGENAME: github.com/cockroachdb/pcf-crdb-service-broker
         GOVERSION: go1.8
         SERVICES: '[
           {
