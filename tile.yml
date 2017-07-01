@@ -38,20 +38,7 @@ packages:
             "tags": ["cockroachdb", "relational"]
           }
         ]'
-        #        PRECONFIGURED_PLANS: '[]'
-        PRECONFIGURED_PLANS: '[
-          {
-            "name": "default",
-            "description": "Default",
-            "metadata": {
-              "displayName": "Default"
-            },
-            "serviceID": "e2e250b5-73f8-45fd-9a7f-93c8dddc5f00",
-            "crdbHost": "13.82.91.246",
-            "crdbPort": "26257",
-            "crdbAdminUser": "root"
-          }
-        ]'
+        PRECONFIGURED_PLANS: '[]'
     needs_cf_credentials: false
     enable_global_access_to_plans: true
 
@@ -85,6 +72,7 @@ service_plan_forms:
       options:
         - name: 'e2e250b5-73f8-45fd-9a7f-93c8dddc5f00'
           label: 'CockroachDB'
+          default: true
     - name: host
       label: 'Database hostname'
       type: string
@@ -98,8 +86,37 @@ service_plan_forms:
       constraints:
         min: 1
         max: 65535
-# TODO(radu): certificate/key for secure clusters
-# TODO(radu): set a default zone config for each plan?
+    - name: ssl_mode
+      label: 'TLS Mode'
+      type: dropdown_select
+      description: 'Security setting'
+      options:
+        - name: 'verify-full'
+          label: 'Encryption and authentication'
+          default: true
+        - name: 'require'
+          label: 'Encryption'
+        - name: 'disable'
+          label: 'Disabled (insecure cluster)'
+    - name: ssl_client_cert
+      label: 'Client certificate'
+      type: text
+      optional: true
+      description: 'Client certificate for root user (not used if TLS is Disabled)'
+      configurable: true
+    - name: ssl_client_key
+      label: 'Client key'
+      type: text
+      optional: true
+      description: 'Private client key for root user (not used if TLS is Disabled)'
+      configurable: true
+    - name: ssl_ca_cert
+      label: 'Server CA certificate'
+      type: text
+      optional: true
+      description: 'Server CA certificate (used only if TLS mode is Encryption and Authentication)'
+      configurable: true
+# TODO(radu): default zone config for each plan?
 
 
 # Include stemcell criteria if you don't want to accept the default.

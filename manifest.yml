@@ -34,9 +34,12 @@ applications:
             "displayName": "Default"
           },
           "serviceID": "e2e250b5-73f8-45fd-9a7f-93c8dddc5f00",
-          "crdbHost": "13.82.91.246",
+          "crdbHost": "52.170.84.221",
           "crdbPort": "26257",
-          "crdbAdminUser": "root"
+          "sslMode": "disable",
+          "sslClientCert": "",
+          "sslClientKey": "",
+          "sslCACert": ""
         }
       ]'
       SECURITY_USER_NAME: user

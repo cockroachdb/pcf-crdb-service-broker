@@ -16,6 +16,9 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/url"
+	"os"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -54,29 +57,60 @@ func userNameFromBinding(instanceID, bindingID string) string {
 
 // dbURI creates a URI that can be used to connect to CockroachDB;
 // user, pass, and db are optional.
-func dbURI(host, port, user, pass, db string) string {
+func dbURI(host, port, user, pass, db string, options url.Values) string {
 	if host == "" || port == "" {
 		panic("host/port not passed")
 	}
-	if user == "" {
-		return fmt.Sprintf("postgres://%s:%s/%s?sslmode=disable", host, port, db)
-	}
-	if pass == "" {
-		return fmt.Sprintf("postgres://%s@%s:%s/%s?sslmode=disable", user, host, port, db)
-	}
-	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, pass, host, port, db)
-}
 
-func jdbcURI(host, port, user, pass, db string) string {
-	if host == "" || port == "" {
-		panic("host/port not passed")
+	u := url.URL{
+		Scheme:   "postgres",
+		Host:     fmt.Sprintf("%s:%s", host, port),
+		Path:     db,
+		RawQuery: options.Encode(),
 	}
-	uri := fmt.Sprintf("jdbc:postgres://%s:%s/%s?sslmode=disable", host, port, db)
+
 	if user != "" {
-		uri = uri + fmt.Sprintf("&user=%s", user)
 		if pass != "" {
-			uri = uri + fmt.Sprintf("&password=%s", pass)
+			u.User = url.UserPassword(user, pass)
+		} else {
+			u.User = url.User(user)
 		}
 	}
-	return uri
+	return u.String()
+}
+
+func jdbcURL(host, port, user, pass, db string, options url.Values) string {
+	if host == "" || port == "" {
+		panic("host/port not passed")
+	}
+	url := fmt.Sprintf("jdbc:postgresql://%s:%s/%s", host, port, db)
+	if user != "" {
+		url = url + fmt.Sprintf("&user=%s", user)
+		if pass != "" {
+			url = url + fmt.Sprintf("&password=%s", pass)
+		}
+	}
+	if len(options) > 0 {
+		url = url + "?" + options.Encode()
+	}
+	return url
+}
+
+// createTempFile creates a temporary file and populates it with the given
+// contents.
+func createTempFile(prefix string, contents []byte) (path string, err error) {
+	f, err := ioutil.TempFile("" /* default temp dir */, prefix)
+	if err != nil {
+		return "", err
+	}
+	path = f.Name()
+	_, err = f.Write(contents)
+	if closeErr := f.Close(); closeErr != nil && err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		os.Remove(path)
+		return "", err
+	}
+	return path, nil
 }
