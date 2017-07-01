@@ -37,6 +37,7 @@ func main() {
 	log.Info("Starting CF CockroachDB broker")
 
 	InitServicesAndPlans()
+	defer CleanupPlans()
 
 	serviceBroker := newCRDBServiceBroker()
 

@@ -17,9 +17,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"regexp"
-
-	_ "github.com/lib/pq" // initialize the postgres sql driver
 
 	"github.com/dchest/uniuri"
 
@@ -126,13 +125,20 @@ func (sb *crdbServiceBroker) Bind(
 		return brokerapi.Binding{}, fmt.Errorf("granting privileges: %s", err)
 	}
 
+	options := make(url.Values)
+	if plan.SSLMode == "disable" {
+		options.Add("sslmode", "disable")
+	} else {
+		options.Add("sslmode", "require")
+	}
 	credMap := map[string]interface{}{
 		"host":     plan.CRDBHost,
 		"port":     plan.CRDBPort,
 		"database": dbName,
 		"username": user,
 		"password": pass,
-		"uri":      dbURI(plan.CRDBHost, plan.CRDBPort, user, pass, dbName),
+		"uri":      dbURI(plan.CRDBHost, plan.CRDBPort, user, pass, dbName, options),
+		"jdbcURL":  jdbcURL(plan.CRDBHost, plan.CRDBPort, user, pass, dbName, options),
 	}
 
 	return brokerapi.Binding{Credentials: credMap}, nil
