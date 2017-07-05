@@ -110,6 +110,9 @@ We can test things with a sample app called `spring-music`, which just exposes a
 web UI to insert/remove music album information. The application supports a
 postgres backend. To install it, see the [`spring-music-only-war` repo](https://github.com/svennela/spring-music-only-war).
 
+Note: we can only use CockroachDB in insecure mode with this app (it tries to
+connect without TLS, regardless of the URI).
+
 Once `spring-music` is pushed, we can bind it to our new service:
 ```
 cf bind-service spring-music crdb-service-1
