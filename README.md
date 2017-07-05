@@ -89,7 +89,7 @@ cf create-service cockroachdb default crdb-service-1
 
 If we log into the database, we can see that a new database has been created.
 
-```sql
+```
 root@52.170.84.221:26257/> SHOW DATABASES;
 +-------------------------------------+
 |              Database               |
@@ -117,7 +117,7 @@ cf bind-service spring-music crdb-service-1
 
 This operation created a new user with access to the database associated with
 `crdb-service-1`:
-```sql
+```
 root@52.170.84.221:26257/> SHOW USERS;
 +----------------------------------+
 |             username             |
@@ -141,11 +141,10 @@ URI to our database:
 cf env spring-music
 ...
      "uri": "postgres://dkbafmddnfmgofgghiflhkcbnkdleknp:3SJ2dD3K6v1PfHk1@52.170.84.221:26257/cf_gbccnddiddnnhfdolliklaolojgmceif?sslmode=disable",
-
 ...
 ```
 Restart the app (`cf restart spring-music`) and it should now be using our database:
-```sql
+```
 root@52.170.84.221:26257/> SHOW TABLES FROM cf_gbccnddiddnnhfdolliklaolojgmceif;
 +-------+
 | Table |
