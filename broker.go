@@ -113,15 +113,31 @@ func (sb *crdbServiceBroker) Bind(
 		return brokerapi.Binding{}, fmt.Errorf("creating user: %s", err)
 	}
 
+	cleanup := func() {
+		_, _ = plan.crdb.Exec(fmt.Sprintf("REVOKE ALL ON TABLE %s.* FROM %s", dbName, user))
+		_, _ = plan.crdb.Exec(fmt.Sprintf("REVOKE ALL ON DATABASE %s FROM %s", dbName, user))
+		_, _ = plan.crdb.Exec("DROP USER %s", user)
+	}
+
 	if _, err := plan.crdb.Exec(
 		fmt.Sprintf("GRANT ALL ON DATABASE %s TO %s", dbName, user),
 	); err != nil {
-		_, _ = plan.crdb.Exec("DROP USER %s", user)
+		cleanup()
 		if dbNotFoundErrRegexp.MatchString(err.Error()) {
 			return brokerapi.Binding{}, brokerapi.ErrInstanceDoesNotExist
 		}
 		log.Error("grant-privileges", err)
-		// TODO(radu): delete the user
+		return brokerapi.Binding{}, fmt.Errorf("granting privileges: %s", err)
+	}
+
+	if _, err := plan.crdb.Exec(
+		fmt.Sprintf("GRANT ALL ON TABLE %s.* TO %s", dbName, user),
+	); err != nil {
+		cleanup()
+		if dbNotFoundErrRegexp.MatchString(err.Error()) {
+			return brokerapi.Binding{}, brokerapi.ErrInstanceDoesNotExist
+		}
+		log.Error("grant-privileges", err)
 		return brokerapi.Binding{}, fmt.Errorf("granting privileges: %s", err)
 	}
 
@@ -153,7 +169,17 @@ func (sb *crdbServiceBroker) Unbind(
 		return err
 	}
 
+	dbName := dbNameFromInstanceID(instanceID)
 	user := userNameFromBinding(instanceID, bindingID)
+
+	if _, err := plan.crdb.Exec(fmt.Sprintf("REVOKE ALL ON TABLE %s.* FROM %s", dbName, user)); err != nil {
+		log.Error("revoke-grants", err)
+		return fmt.Errorf("remoking grants from tables for user: %s", err)
+	}
+	if _, err := plan.crdb.Exec(fmt.Sprintf("REVOKE ALL ON DATABASE %s FROM %s", dbName, user)); err != nil {
+		log.Error("revoke-grants", err)
+		return fmt.Errorf("remoking grants from database for user: %s", err)
+	}
 
 	if _, err := plan.crdb.Exec(fmt.Sprintf("DROP USER IF EXISTS %s", user)); err != nil {
 		log.Error("drop-user", err)

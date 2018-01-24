@@ -8,7 +8,7 @@ applications:
     buildpack: go_buildpack
     env:
       GOPACKAGENAME: github.com/cockroachdb/pcf-crdb-service-broker
-      GOVERSION: go1.8
+      GOVERSION: go1.9
       SERVICES: '[
         {
           "id": "e2e250b5-73f8-45fd-9a7f-93c8dddc5f00",
