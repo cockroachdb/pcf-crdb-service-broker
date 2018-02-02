@@ -226,10 +226,10 @@ func createCustomPlans(customPlansJSON string) ([]Plan, error) {
 			ServiceID: p.ServiceID,
 			CRDBHost:  p.DBHost,
 			CRDBPort:  strconv.Itoa(p.DBPort),
-			SSLMode:   p.SSLMode,
-			SSLCert:   p.SSLCert,
-			SSLKey:    p.SSLKey,
-			SSLCACert: p.SSLCACert,
+			SSLMode:   "disable",
+			SSLCert:   """,
+			SSLKey:    """,
+			SSLCACert: """,
 		})
 	}
 	return plans, nil
