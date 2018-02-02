@@ -39,31 +39,7 @@ type Plan struct {
 	CRDBPort      string `json:"crdbPort"`
 	CRDBAdminUser string `json:"crdbAdminUser"`
 
-	// SSLMode is one of:
-	//  - "disable": no SSL (for insecure cluster)
-	//  - "require": encrypted connection. Server verifies client's certificate.
-	//               Client does not verify server's certificate.
-	//  - "verify-ca": encrypted connection. Server verifies client's certificate.
-	//                 Client verifies server's certificate against the CA
-	//                 certificate, but does not verify that the host name matches
-	//                 its certificate.
-	//  - "verify-full": encrypted connection. Server verifies client's certificate.
-	//                   Client verifies server's certificate against the CA
-	//                   certificate and the host name matches that on the certificate.
-	// The recommended mode is "verify-full".
-	SSLMode string `json:"sslMode"`
-
-	// Client certificate (public key). Used for all modes except "disable".
-	SSLCert string `json:"sslClientCert"`
-	// Client private key. Used for all modes except "disable".
-	SSLKey string `json:"sslClientKey"`
-	// Certificate Authority certificate. Used for "verify-ca" and "verify-full".
-	SSLCACert string `json:"sslCACert"`
-
 	crdb        *sql.DB
-	sslCertFile string
-	sslKeyFile  string
-	sslCAFile   string
 }
 
 type Service struct {
@@ -143,33 +119,7 @@ func addPlan(p Plan) {
 	}
 
 	options := make(url.Values)
-	options.Add("sslmode", p.SSLMode)
-
-	switch p.SSLMode {
-	case "disable":
-	case "verify-ca", "verify-full":
-		var err error
-		p.sslCAFile, err = createTempFile("crdb-ssl-ca-", []byte(p.SSLCACert))
-		if err != nil {
-			log.Fatal("init-ca-file", err)
-		}
-		options.Add("sslrootcert", p.sslCAFile)
-		fallthrough
-	case "require":
-		var err error
-		p.sslCertFile, err = createTempFile("crdb-ssl-cert-", []byte(p.SSLCert))
-		if err != nil {
-			log.Fatal("init-cert-file", err)
-		}
-		options.Add("sslcert", p.sslCertFile)
-		p.sslKeyFile, err = createTempFile("crdb-ssl-key-", []byte(p.SSLKey))
-		if err != nil {
-			log.Fatal("init-key-file", err)
-		}
-		options.Add("sslkey", p.sslKeyFile)
-	default:
-		log.Fatal("init", fmt.Errorf("unknown ssl mode %s", p.SSLMode))
-	}
+	options.Add("sslmode", "disable")
 
 	p.crdb, err = sql.Open(
 		"postgres",
@@ -190,10 +140,6 @@ type customPlanSpec struct {
 	ServiceID   string `json:"service"`
 	DBHost      string `json:"host"`
 	DBPort      int    `json:"port"`
-	SSLMode     string `json:"ssl_mode"`
-	SSLCert     string `json:"ssl_client_cert"`
-	SSLKey      string `json:"ssl_client_key"`
-	SSLCACert   string `json:"ssl_ca_cert"`
 }
 
 func createCustomPlans(customPlansJSON string) ([]Plan, error) {
@@ -226,10 +172,6 @@ func createCustomPlans(customPlansJSON string) ([]Plan, error) {
 			ServiceID: p.ServiceID,
 			CRDBHost:  p.DBHost,
 			CRDBPort:  strconv.Itoa(p.DBPort),
-			SSLMode:   p.SSLMode,
-			SSLCert:   p.SSLCert,
-			SSLKey:    p.SSLKey,
-			SSLCACert: p.SSLCACert,
 		})
 	}
 	return plans, nil
@@ -275,14 +217,3 @@ func InitServicesAndPlans() {
 	}
 }
 
-func CleanupPlans() {
-	for _, s := range Services {
-		for _, p := range s.Plans {
-			for _, file := range []string{p.sslCAFile, p.sslCertFile, p.sslKeyFile} {
-				if file != "" {
-					os.Remove(file)
-				}
-			}
-		}
-	}
-}
