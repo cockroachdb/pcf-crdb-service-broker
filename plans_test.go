@@ -49,8 +49,7 @@ func TestInit(t *testing.T) {
       "serviceID": "e2e250b5-73f8-45fd-9a7f-93c8dddc5f00",
       "crdbHost": "13.82.91.246",
       "crdbPort": "26257",
-      "crdbAdminUser": "root",
-			"sslMode":"disable"
+      "crdbAdminUser": "root"
     }
   ]`)
 
@@ -62,8 +61,7 @@ func TestInit(t *testing.T) {
       "description":"plan1 desc",
       "service":"e2e250b5-73f8-45fd-9a7f-93c8dddc5f00",
       "host":"1.2.3.4",
-      "port":26257,
-			"ssl_mode":"disable"
+      "port":26257
     },
     "plan2":{
       "guid":"411ad433-b087-4fe5-a5e1-b099c57c83ab",
@@ -72,16 +70,11 @@ func TestInit(t *testing.T) {
       "description":"plan2 desc",
       "service":"e2e250b5-73f8-45fd-9a7f-93c8dddc5f00",
       "host":"5.6.7.8",
-      "port":26257,
-			"ssl_mode":"verify-full",
-			"ssl_client_cert":"Client cert data",
-			"ssl_client_key":"Client key data",
-			"ssl_ca_cert":"CA cert data"
+      "port":26257
     }
   }`)
 
 	InitServicesAndPlans()
-	CleanupPlans()
 
 	expected := []Service{
 		{
@@ -115,7 +108,6 @@ func TestInit(t *testing.T) {
 					CRDBHost:      "13.82.91.246",
 					CRDBPort:      "26257",
 					CRDBAdminUser: "root",
-					SSLMode:       "disable",
 				},
 				Plan{
 					ServicePlan: brokerapi.ServicePlan{
@@ -130,7 +122,6 @@ func TestInit(t *testing.T) {
 					CRDBHost:      "1.2.3.4",
 					CRDBPort:      "26257",
 					CRDBAdminUser: "root",
-					SSLMode:       "disable",
 				},
 				Plan{
 					ServicePlan: brokerapi.ServicePlan{
@@ -145,10 +136,6 @@ func TestInit(t *testing.T) {
 					CRDBHost:      "5.6.7.8",
 					CRDBPort:      "26257",
 					CRDBAdminUser: "root",
-					SSLMode:       "verify-full",
-					SSLCert:       "Client cert data",
-					SSLKey:        "Client key data",
-					SSLCACert:     "CA cert data",
 				},
 			},
 		},
@@ -158,9 +145,6 @@ func TestInit(t *testing.T) {
 	for i := range Services {
 		for j := range Services[i].Plans {
 			Services[i].Plans[j].crdb = nil
-			Services[i].Plans[j].sslCertFile = ""
-			Services[i].Plans[j].sslKeyFile = ""
-			Services[i].Plans[j].sslCAFile = ""
 		}
 	}
 

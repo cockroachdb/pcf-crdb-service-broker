@@ -1,7 +1,7 @@
 ---
 applications:
   - name: crdb-service-broker
-    product_version: 1.0
+    product_version: 0.9
     metadata_version: 1.0
     memory: 256M
     instances: 1
@@ -13,17 +13,17 @@ applications:
         {
           "id": "e2e250b5-73f8-45fd-9a7f-93c8dddc5f00",
           "name": "cockroachdb",
-          "description": "A cloud-native SQL database for building global, scalable cloud services that survive disasters.",
+          "description": "CockroachDB service broker for creating cloud-native SQL databases.",
           "bindable": true,
           "plan_updateable": false,
           "metadata": {
             "displayName": "CockroachDB",
-            "longDescription": "A cloud-native SQL database for building global, scalable cloud services that survive disasters.",
+            "longDescription": "CockroachDB service broker for creating cloud-native SQL databases.",
             "documentationUrl": "https://www.cockroachlabs.com/docs/",
             "supportUrl": "https://www.cockroachlabs.com/community/",
             "imageUrl": "https://www.cockroachlabs.com/images/CockroachLabs_Logo_Mark-lightbackground.svg"
           },
-          "tags": ["cockroachdb", "relational"]
+          "tags": ["cockroachdb", "database", "SQL", "cloud"]
         }
       ]'
       PRECONFIGURED_PLANS: '[
@@ -34,12 +34,8 @@ applications:
             "displayName": "Default"
           },
           "serviceID": "e2e250b5-73f8-45fd-9a7f-93c8dddc5f00",
-          "crdbHost": "52.170.84.221",
-          "crdbPort": "26257",
-          "sslMode": "disable",
-          "sslClientCert": "",
-          "sslClientKey": "",
-          "sslCACert": ""
+          "crdbHost": "",
+          "crdbPort": "26257"
         }
       ]'
       SECURITY_USER_NAME: user
