@@ -23,7 +23,7 @@ applications:
             "supportUrl": "https://www.cockroachlabs.com/community/",
             "imageUrl": "https://www.cockroachlabs.com/images/CockroachLabs_Logo_Mark-lightbackground.svg"
           },
-          "tags": ["cockroachdb", "database", "SQL", "cloud", "kubernetes"]
+          "tags": ["cockroachdb", "database", "SQL", "cloud"]
         }
       ]'
       PRECONFIGURED_PLANS: '[
