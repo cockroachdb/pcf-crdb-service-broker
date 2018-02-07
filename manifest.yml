@@ -1,6 +1,6 @@
 ---
 applications:
-  - name: crdb-service-broker
+  - name: cockroachdb-service-broker
     product_version: 0.9
     metadata_version: 1.0
     memory: 256M

@@ -52,12 +52,12 @@ The service broker can either be pushed as an app, or deployed from a tile.
 
 - Create the service broker:
   ```
-  cf create-service-broker crdb-service-broker user pass https://<hostname>
+  cf create-service-broker cockroachdb-service-broker user pass https://<hostname>
   ```
   The user and password are `SECURITY_USER_NAME` and `SECURITY_USER_PASSWORD`
   in `manifest.yml`; the hostname is the one shown by `cf apps`.
 
-The `cf service-brokers` command should show `crdb-service-broker`.
+The `cf service-brokers` command should show `cockroachdb-service-broker`.
 
 
 #### Using the tile
@@ -72,7 +72,7 @@ Note that every build bumps the tile version. CF will barf if it sees two files
 with the same version that are different (even if the old one was uninstalled),
 so it's best to not circumvent the version change.
 
-After the installation, the `cf service-brokers` command should show `crdb-service-broker`.
+After the installation, the `cf service-brokers` command should show `cockroachdb-service-broker`.
 
 ### Using the CockroachDB service
 
