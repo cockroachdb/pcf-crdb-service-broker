@@ -1,0 +1,123 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crdb-service-broker
+  labels:
+    app: crdbsb
+spec:
+  selector:
+    app: crdbsb
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+  type: NodePort
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: crdb-service-broker
+  labels:
+    app: crdbsb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crdbsb
+  template:
+    metadata:
+      labels:
+        app: crdbsb
+    spec:
+      initContainers:
+        - name: ${CRDB_TOKEN}
+          command:
+          - /bin/ash
+          - -ecx
+          - /request-cert -namespace=${DOLLAR}{POD_NAMESPACE} -certs-dir=/cockroach-certs -type=client
+            -user=root -symlink-ca-from=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          image: cockroachdb/cockroach-k8s-request-cert:0.3
+          imagePullPolicy: IfNotPresent
+          name: init-certs
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /cockroach-certs
+            name: client-certs
+          - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+            name: ${CRDB_TOKEN}
+            readOnly: true
+      containers:
+      - name: crdbsb
+        image: ${CRDBSB_IMAGE}:${CRDBSB_TAG}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+          - name: SERVICES
+            value: '[
+              {
+                "id": "e2e250b5-73f8-45fd-9a7f-93c8dddc5f00",
+                "name": "cockroachdb",
+                "description": "CockroachDB service broker for creating cloud-native SQL databases.",
+                "bindable": true,
+                "plan_updateable": false,
+                "metadata": {
+                  "displayName": "CockroachDB",
+                  "longDescription": "CockroachDB service broker for creating cloud-native SQL databases.",
+                  "documentationUrl": "https://www.cockroachlabs.com/docs/",
+                  "supportUrl": "https://www.cockroachlabs.com/community/",
+                  "imageUrl": "https://www.cockroachlabs.com/images/CockroachLabs_Logo_Mark-lightbackground.svg"
+                },
+                "tags": ["cockroachdb", "database", "SQL", "cloud"]
+              }
+            ]'
+          - name: PRECONFIGURED_PLANS
+            value: '[
+              {
+                "name": "default",
+                "description": "Default",
+                "metadata": {
+                  "displayName": "Default"
+                },
+                "serviceID": "e2e250b5-73f8-45fd-9a7f-93c8dddc5f00",
+                "crdbHost": "${CRDB_HOST}",
+                "crdbPort": "${CRDB_PORT}"
+              }
+            ]'
+          - name: SECURITY_USER_NAME
+            value: user
+          - name: SECURITY_USER_PASSWORD
+            value: pass
+          - name: PGSSLKEY
+            value: /cockroach-certs/client.root.key
+          - name: PGSSLCERT
+            value: /cockroach-certs/client.root.crt
+        volumeMounts:
+        - mountPath: /cockroach-certs
+          name: client-certs
+        - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          name: ${CRDB_TOKEN}
+          readOnly: true
+      volumes:
+      - emptyDir: {}
+        name: client-certs
+      - name: ${CRDB_TOKEN}
+        secret:
+          defaultMode: 420
+          secretName: ${CRDB_TOKEN}
+---
+apiVersion: servicecatalog.k8s.io/v1beta1
+kind: ClusterServiceBroker
+metadata:
+  name: cockroachdb-service-broker
+spec:
+  url:  http://user:pass@crdb-service-broker.default
