@@ -48,6 +48,7 @@ func (sb *crdbServiceBroker) Services(context context.Context) []brokerapi.Servi
 
 var dbExistsErrRegexp = regexp.MustCompile("database .* already exists")
 var dbNotFoundErrRegexp = regexp.MustCompile("database .* does not exist")
+var noObjectMatchedRegexp = regexp.MustCompile("pq: no object matched")
 
 // Provision is part of the brokerapi.ServiceBroker interface.
 func (sb *crdbServiceBroker) Provision(
@@ -133,12 +134,17 @@ func (sb *crdbServiceBroker) Bind(
 	if _, err := plan.crdb.Exec(
 		fmt.Sprintf("GRANT ALL ON TABLE %s.* TO %s", dbName, user),
 	); err != nil {
-		cleanup()
 		if dbNotFoundErrRegexp.MatchString(err.Error()) {
+			cleanup()
 			return brokerapi.Binding{}, brokerapi.ErrInstanceDoesNotExist
 		}
 		log.Error("grant-privileges", err)
-		return brokerapi.Binding{}, fmt.Errorf("granting privileges: %s", err)
+
+		// if there are no tables we don't want to fail the binding
+		if !noObjectMatchedRegexp.MatchString(err.Error()) {
+			cleanup()
+			return brokerapi.Binding{}, fmt.Errorf("granting privileges: %s", err)
+		}
 	}
 
 	options := make(url.Values)
@@ -171,11 +177,14 @@ func (sb *crdbServiceBroker) Unbind(
 
 	if _, err := plan.crdb.Exec(fmt.Sprintf("REVOKE ALL ON TABLE %s.* FROM %s", dbName, user)); err != nil {
 		log.Error("revoke-grants", err)
-		return fmt.Errorf("remoking grants from tables for user: %s", err)
+		// if there are no tables in the database we don't want to break
+		if !noObjectMatchedRegexp.MatchString(err.Error()) {
+			return fmt.Errorf("revoking grants from tables for user: %s", err)
+		}
 	}
 	if _, err := plan.crdb.Exec(fmt.Sprintf("REVOKE ALL ON DATABASE %s FROM %s", dbName, user)); err != nil {
 		log.Error("revoke-grants", err)
-		return fmt.Errorf("remoking grants from database for user: %s", err)
+		return fmt.Errorf("revoking grants from database for user: %s", err)
 	}
 
 	if _, err := plan.crdb.Exec(fmt.Sprintf("DROP USER IF EXISTS %s", user)); err != nil {
