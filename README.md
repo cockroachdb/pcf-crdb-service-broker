@@ -191,3 +191,52 @@ root@52.170.84.221:26257/> SELECT * FROM cf_gbccnddiddnnhfdolliklaolojgmceif.alb
 +--------------------------------------+---------+---------------------------+-------+-------------+----------------------------+------------+
 (29 rows)
 ```
+
+## Kubernetes (experimental)
+
+Kubernetes [Service Catalog](https://svc-cat.io/) introduces the Open Service
+Broker API to Kubernetes. This means that Service Brokers written for Cloud
+Foundry can be easily ported to Kubernetes.
+
+### Containerize
+
+The following commands will build a Docker container of the CockroachDB Service
+Broker and push it to your Docker Registry (make sure authentication is
+configured properly):
+
+```
+export CRDBSB_IMAGE=yourusername/crdbsb
+export CRDBSB_TAG=latest
+make docker-push
+```
+
+### Deploy
+
+Deployment has been successfully tested on [minikube
+0.28.2](https://github.com/kubernetes/minikube/releases/tag/v0.28.2) with the
+following extra configuration:
+
+```
+% minikube start --container-runtime docker \
+     --memory 8192 \
+     --cpus 2  \
+     --extra-config=apiserver.Authorization.Mode=RBAC
+```
+
+You will also need to install the [Service
+Catalog](https://svc-cat.io/docs/install/) on your Kubernetes cluster.
+
+Once your cluster is ready, make sure your kubectl context is configured
+correctly and issue the following commands to deploy the Service Broker:
+
+```
+export CRDBSB_IMAGE=yourusername/crdbsb
+export CRDBSB_TAG=latest
+export CRDB_HOST=cockroachdb-public.default.svc.cluster.local
+export CRDB_PORT=26257
+export CRDB_TOKEN=cockroachdb-cockroachdb-token-rs2kk
+make deploy
+```
+
+You can configure your CockroachDB cluster endpoint using the `CRDB_HOST`
+and `CRDB_PORT` environment variables.

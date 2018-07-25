@@ -1,3 +1,4 @@
 build/
 product/
 release/
+cockroachdb-servicebroker*
