@@ -119,7 +119,7 @@ func addPlan(p Plan) {
 	}
 
 	options := make(url.Values)
-	options.Add("sslmode", "disable")
+	options.Add("sslmode", "require")
 
 	p.crdb, err = sql.Open(
 		"postgres",

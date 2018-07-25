@@ -148,7 +148,7 @@ func (sb *crdbServiceBroker) Bind(
 	}
 
 	options := make(url.Values)
-	options.Add("sslmode", "disable")
+	options.Add("sslmode", "require")
 
 	credMap := map[string]interface{}{
 		"host":     plan.CRDBHost,
